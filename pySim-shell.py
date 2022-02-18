@@ -655,7 +655,12 @@ class PySimCommands(CommandSet):
         """VERIFY the ADM1 PIN"""
         if arg:
             # use specified ADM-PIN
-            pin_adm = sanitize_pin_adm(arg)
+            if len(arg) != 16:
+                # use ascii string
+                pin_adm = sanitize_pin_adm(pin_adm=arg)
+            else:
+                # use hexadecimal string
+                pin_adm = sanitize_pin_adm(None, pin_adm_hex=arg)
         else:
             # try to find an ADM-PIN if none is specified
             result = card_key_provider_get_field(
