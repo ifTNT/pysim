@@ -1242,6 +1242,49 @@ class FairwavesSIM(UsimCard):
                 print("Programming ACC failed with code %s" % sw)
 
 
+class GrcardUSIM(UsimCard):
+    """
+    GREEN CARD, Grcard (Hong Kong ) Co.,Limited, LTE USIM Card (Telecommunication)
+
+    """
+
+    name = 'Grcard LTE USIM Card'
+
+    def __init__(self, ssc):
+        super(GrcardUSIM, self).__init__(ssc)
+        self._adm_chv_num = 0x0a
+        self.def_adm_key = h2b("4137381934333435")
+
+    @classmethod
+    def autodetect(kls, scc):
+        try:
+            # Look for ATR
+            # TODO: this ATR is indistinguishable from OpenCellsSim
+            if scc.get_atr() == toBytes("3B 9F 95 80 1F C3 80 31 E0 73 FE 21 13 57 86 81 02 86 98 44 18 A8"):
+                return kls(scc)
+        except:
+            return None
+        return None
+
+    def _activate_factory_mode(self):
+        self._scc.reset_card()
+        self._scc.cla_byte = "a0"
+        self._scc.sel_ctrl = "0000"
+        self._scc._tp.send_apdu_checksw(
+            self._scc.cla_byte+"72"+"0000"+
+            "10"+"e16cd6ae058b032f0601c60990014083")
+        self._scc._tp.send_apdu_checksw(
+            self._scc.cla_byte+"74"+"0002"+"00")
+
+    def verify_adm(self, key):
+        # authenticate as ADM2 using default key
+        if not key:
+            key = self.def_adm_key
+        self._activate_factory_mode()
+        (res, sw) = self._scc.verify_chv(self._adm_chv_num, key)
+        
+        return sw
+
 class OpenCellsSim(SimCard):
     """
     OpenCellsSim
@@ -1631,7 +1674,7 @@ class SysmoISIMSJA2(UsimCard, IsimCard):
 
 
 # In order for autodetection ...
-_cards_classes = [FakeMagicSim, SuperSim, MagicSim, GrcardSim,
+_cards_classes = [FakeMagicSim, SuperSim, MagicSim, GrcardSim, GrcardUSIM,
                   SysmoSIMgr1, SysmoSIMgr2, SysmoUSIMgr1, SysmoUSIMSJS1,
                   FairwavesSIM, OpenCellsSim, WavemobileSim, SysmoISIMSJA2]
 
