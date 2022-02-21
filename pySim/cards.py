@@ -28,6 +28,7 @@ import abc
 from pySim.ts_51_011 import EF, DF, EF_AD, EF_SPN
 from pySim.ts_31_102 import EF_USIM_ADF_map
 from pySim.ts_31_103 import EF_ISIM_ADF_map
+from pySim.ts_102_221 import pin_names
 from pySim.utils import *
 from smartcard.util import toBytes
 from pytlv.TLV import *
@@ -79,7 +80,7 @@ class SimCard(object):
                 return False
         return True
 
-    def verify_adm(self, key):
+    def verify_adm(self, key, nr=0x0a):
         """Authenticate with ADM key"""
         (res, sw) = self._scc.verify_chv(self._adm_chv_num, key)
         return sw
@@ -1002,7 +1003,7 @@ class SysmoUSIMSJS1(UsimCard):
             return None
         return None
 
-    def verify_adm(self, key):
+    def verify_adm(self, key, nr=0x0a):
         # authenticate as ADM using default key (written on the card..)
         if not key:
             raise ValueError(
@@ -1253,7 +1254,10 @@ class GrcardUSIM(UsimCard):
     def __init__(self, ssc):
         super(GrcardUSIM, self).__init__(ssc)
         self._adm_chv_num = 0x0a
-        self.def_adm_key = h2b("4137381934333435")
+        self.def_adm_key = {
+            'ADM1': h2b("4137381934333435"),
+            'ADM2': h2b("3534331439383741")
+        }
 
     @classmethod
     def autodetect(kls, scc):
@@ -1276,12 +1280,12 @@ class GrcardUSIM(UsimCard):
         self._scc._tp.send_apdu_checksw(
             self._scc.cla_byte+"74"+"0002"+"00")
 
-    def verify_adm(self, key):
+    def verify_adm(self, key, nr=0x0a):
         # authenticate as ADM2 using default key
         if not key:
-            key = self.def_adm_key
-        self._activate_factory_mode()
-        (res, sw) = self._scc.verify_chv(self._adm_chv_num, key)
+            key = self.def_adm_key[pin_names[nr]]
+        #self._activate_factory_mode()
+        (res, sw) = self._scc.verify_chv(nr, key)
         
         return sw
 
@@ -1464,7 +1468,7 @@ class SysmoISIMSJA2(UsimCard, IsimCard):
             return None
         return None
 
-    def verify_adm(self, key):
+    def verify_adm(self, key, nr=0x0a):
         # authenticate as ADM using default key (written on the card..)
         if not key:
             raise ValueError(

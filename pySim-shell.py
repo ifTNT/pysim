@@ -53,11 +53,13 @@ from pySim.ts_31_102 import CardApplicationUSIM
 from pySim.ts_31_103 import CardApplicationISIM
 from pySim.ara_m import CardApplicationARAM
 from pySim.gsm_r import DF_EIRENE
+from pySim.ts_102_221 import pin_names
 
 # we need to import this module so that the SysmocomSJA2 sub-class of
 # CardModel is created, which will add the ATR-based matching and
 # calling of SysmocomSJA2.add_files.  See  CardModel.apply_matching_models
 import pySim.sysmocom_sja2
+import pySim.grcard_usim
 
 from pySim.card_key_provider import CardKeyProviderCsv, card_key_provider_register, card_key_provider_get_field
 
@@ -651,20 +653,32 @@ class PySimCommands(CommandSet):
         else:
             self._cmd.poutput("no description available")
 
-    def do_verify_adm(self, arg):
-        """VERIFY the ADM1 PIN"""
-        if arg:
+    verify_adm_parser = argparse.ArgumentParser()
+    verify_adm_parser.add_argument(
+        '--adm-nr', type=int, default=1, help='ADM Number, 1=ADM1, 2=ADM2, ... and so on')
+    verify_adm_parser.add_argument(
+        'adm_key', type=str, help='The credential of ADM')
+
+    @cmd2.with_argparser(verify_adm_parser)
+    def do_verify_adm(self, opt):
+        """VERIFY the ADM PIN"""
+        adm_name = "ADM{}".format(opt.adm_nr)
+        adm_nr = pin_names.inverse[adm_name]
+
+        print("Verifing {name} (0x{nr:02x})".format(name=adm_name, nr=adm_nr))
+
+        if opt.adm_key:
             # use specified ADM-PIN
-            if len(arg) != 16:
+            if len(opt.adm_key) != 16:
                 # use ascii string
-                pin_adm = sanitize_pin_adm(pin_adm=arg)
+                pin_adm = sanitize_pin_adm(pin_adm=opt.adm_key)
             else:
                 # use hexadecimal string
-                pin_adm = sanitize_pin_adm(None, pin_adm_hex=arg)
+                pin_adm = sanitize_pin_adm(None, pin_adm_hex=opt.adm_key)
         else:
             # try to find an ADM-PIN if none is specified
             result = card_key_provider_get_field(
-                'ADM1', key='ICCID', value=self._cmd.iccid)
+                adm_name, key='ICCID', value=self._cmd.iccid)
             pin_adm = sanitize_pin_adm(result)
             if pin_adm:
                 self._cmd.poutput(
@@ -674,7 +688,9 @@ class PySimCommands(CommandSet):
                     "cannot find ADM-PIN for ICCID '%s'" % (self._cmd.iccid))
 
         if pin_adm:
-            self._cmd.card.verify_adm(h2b(pin_adm))
+            sw = self._cmd.card.verify_adm(h2b(pin_adm), nr=adm_nr)
+            if sw=='9000':
+                print('Success')
         else:
             raise ValueError("error: cannot authenticate, no adm-pin!")
 
@@ -874,11 +890,12 @@ global_group.add_argument("--card_handler", dest="card_handler_config", metavar=
                           help="Use automatic card handling machine")
 
 adm_group = global_group.add_mutually_exclusive_group()
-adm_group.add_argument('-a', '--pin-adm', metavar='PIN_ADM1', dest='pin_adm', default=None,
+adm_group.add_argument('-a', '--pin-adm', metavar='PIN_ADM', dest='pin_adm', default=None,
                        help='ADM PIN used for provisioning (overwrites default)')
-adm_group.add_argument('-A', '--pin-adm-hex', metavar='PIN_ADM1_HEX', dest='pin_adm_hex', default=None,
+adm_group.add_argument('-A', '--pin-adm-hex', metavar='PIN_ADM_HEX', dest='pin_adm_hex', default=None,
                        help='ADM PIN used for provisioning, as hex string (16 characters long)')
-
+adm_group.add_argument('-n', '--adm-nr', metavar='ADM_NR', dest='adm_nr', default=0x0a,
+                       help='The CHV number used for ADM')
 
 if __name__ == '__main__':
 
@@ -938,7 +955,7 @@ if __name__ == '__main__':
         if not card:
             print("Card error, cannot do ADM verification with supplied ADM pin now.")
         try:
-            card.verify_adm(h2b(pin_adm))
+            card.verify_adm(h2b(pin_adm), nr=opts.adm_nr)
         except Exception as e:
             print(e)
 
