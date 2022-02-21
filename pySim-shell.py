@@ -58,8 +58,8 @@ from pySim.ts_102_221 import pin_names
 # we need to import this module so that the SysmocomSJA2 sub-class of
 # CardModel is created, which will add the ATR-based matching and
 # calling of SysmocomSJA2.add_files.  See  CardModel.apply_matching_models
-import pySim.sysmocom_sja2
-import pySim.grcard_usim
+import pySim.card_model.sysmocom_sja2
+import pySim.card_model.grcard_usim
 
 from pySim.card_key_provider import CardKeyProviderCsv, card_key_provider_register, card_key_provider_get_field
 
